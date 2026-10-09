@@ -18,6 +18,7 @@
       this.digits = [];
       this.counts = Array(10).fill(0);
       this.lastTick = null;
+      this.lastSignalKeys = Object.create(null);
       this.closedByUser = false;
     }
     send(data) {
@@ -74,6 +75,7 @@
       this.digits = [];
       this.counts = Array(10).fill(0);
       this.lastTick = null;
+      this.lastSignalKeys = Object.create(null);
       if (!this.authorized) {
         this.onStatus("Market selected; waiting for authorization.");
         return false;
@@ -103,7 +105,21 @@
       this.onStatus("Live ticks: " + total + "/" + this.windowSize);
       // Emits event-triggered candidates; caller must decide whether to display them.
       const automatic = this.evaluateAll();
-      automatic.forEach((result) => { if (result.status === "signal") this.onSignal(result); });
+      automatic.forEach((result) => {
+        if (result.status !== "signal") {
+          delete this.lastSignalKeys[result.strategy];
+          return;
+        }
+        // Avoid flooding the UI with the same persistent setup on every tick.
+        // Differs is evaluated per tick because its barrier follows the latest digit.
+        const signature = result.strategy === "DIFFERS"
+          ? result.strategy + ":" + result.barrier + ":" + total
+          : result.strategy + ":" + result.contractType + ":" + result.barrier;
+        if (this.lastSignalKeys[result.strategy] !== signature) {
+          this.lastSignalKeys[result.strategy] = signature;
+          this.onSignal(result);
+        }
+      });
     }
     static lastDigit(quote, pipSize) {
       const precision = Number(pipSize), value = Number(quote);
