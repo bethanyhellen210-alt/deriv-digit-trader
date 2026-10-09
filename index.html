@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deriv Quantum Trading Bot</title>
+    <style>
+        :root {
+            --bg: #0b0d11;
+            --card-bg: #151821;
+            --border: #232836;
+            --accent: #00e676;
+            --danger: #ff5252;
+            --text: #e1e4ed;
+            --subtext: #8b949e;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+        }
+
+        /* NAVBAR */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 30px;
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo { font-size: 20px; font-weight: bold; color: var(--accent); }
+
+        /* LANDING PAGE */
+        .landing-container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .hero {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .hero h1 { font-size: 38px; margin-bottom: 10px; color: #fff; }
+        .hero p { font-size: 16px; color: var(--subtext); }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .feature-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .feature-card h3 { color: var(--accent); margin-top: 0; }
+
+        .login-card {
+            max-width: 400px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .login-card h2 { margin-top: 0; text-align: center; color: #fff; }
+
+        /* DASHBOARD (Hidden initially) */
+        .dashboard-container {
+            display: none;
+            max-width: 1100px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        h3 { margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 10px; font-size: 16px; color: #fff; }
+
+        label { display: block; font-size: 12px; color: var(--subtext); margin-top: 12px; font-weight: bold; }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            background: #0d0f12;
+            border: 1px solid var(--border);
+            color: #fff;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        input:focus, select:focus { outline: 1px solid var(--accent); }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 15px;
+            background: var(--accent);
+            color: #000;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+
+        button:hover { opacity: 0.9; }
+
+        .btn-stop { background: var(--danger) !important; color: #fff !important; }
+        .btn-logout { background: #333; color: #fff; width: auto; padding: 6px 15px; margin: 0; }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-off { background: #333; color: #aaa; }
+        .status-on { background: rgba(0,230,118,0.2); color: var(--accent); border: 1px solid var(--accent); }
+
+        .digit-stream {
+            display: flex;
+            gap: 8px;
+            margin: 15px 0;
+            overflow-x: auto;
+            padding-bottom: 5px;
+        }
+
+        .digit-box {
+            min-width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            background: #202530;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .even { border-bottom: 4px solid var(--accent); }
+        .odd { border-bottom: 4px solid var(--danger); }
+
+        .log-box {
+            background: #090a0c;
+            border: 1px solid var(--border);
+            height: 220px;
+            overflow-y: auto;
+            border-radius: 6px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #4caf50;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 4px;
+            margin: 15px 0;
+        }
+
+        .stat-item {
+            background: #202530;
+            text-align: center;
+            padding: 6px 0;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+        .stat-item span { display: block; font-weight: bold; color: #fff; margin-top: 2px; }
+
+        .error-msg { color: var(--danger); font-size: 12px; margin-top: 5px; display: none; }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <nav>
+        <div class="logo">⚡ QUANTUM BOT</div>
+        <div id="userInfo" style="display: none;">
+            <button class="btn-logout" onclick="logout()">Lock App</button>
+        </div>
+    </nav>
+
+    <!-- LANDING PAGE & LOGIN SECTION -->
+    <div id="landingScreen" class="landing-container">
+        <div class="hero">
+            <h1>Automated Deriv Strategic Trading Engine</h1>
+            <p>Real-Time Digit Analysis for Jump & Volatility Synthetic Indices</p>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <h3>Synthetic Markets</h3>
+                <p>Supports Volatility 10-100 (1s) and Jump Indices (10-100) real-time streaming.</p>
+            </div>
+            <div class="feature-card">
+                <h3>6 Strategy Modes</h3>
+                <p>Over, Under, Matches, Differs, Even, and Odd automated trigger execution.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Risk Management</h3>
+                <p>Execution lock features prevent duplicate trades and protect stake limits.</p>
+            </div>
+        </div>
+
+        <!-- LOGIN FORM -->
+        <div class="login-card">
+            <h2>System Access</h2>
+            <label>Access Key / License Key:</label>
+            <input type="password" id="accessKeyInput" placeholder="Enter your system access key">
+
+            <label>Deriv API Token:</label>
+            <input type="password" id="tokenInput" placeholder="Enter your Deriv API token">
+
+            <div id="loginError" class="error-msg">Invalid Access Key! Please check and try again.</div>
+
+            <button onclick="authenticate()">UNLOCK DASHBOARD</button>
+        </div>
+    </div>
+
+    <!-- TRADING DASHBOARD (Hidden until logged in) -->
+    <div id="dashboardScreen" class="dashboard-container">
+        <div class="grid">
+            <!-- Configuration Panel -->
+            <div class="card">
+                <h3>Bot Settings</h3>
+
+                <label>Select Market:</label>
+                <select id="market" onchange="switchMarket()">
+                    <optgroup label="Volatility Indices">
+                        <option value="R_10">Volatility 10 Index</option>
+                        <option value="R_25">Volatility 25 Index</option>
+                        <option value="R_50">Volatility 50 Index</option>
+                        <option value="R_75">Volatility 75 Index</option>
+                        <option value="R_100" selected>Volatility 100 Index</option>
+                        <option value="1HZ10V">Volatility 10 (1s) Index</option>
+                        <option value="1HZ25V">Volatility 25 (1s) Index</option>
+                        <option value="1HZ50V">Volatility 50 (1s) Index</option>
+                        <option value="1HZ75V">Volatility 75 (1s) Index</option>
+                        <option value="1HZ100V">Volatility 100 (1s) Index</option>
+                    </optgroup>
+                    <optgroup label="Jump Indices">
+                        <option value="JD10">Jump 10 Index</option>
+                        <option value="JD25">Jump 25 Index</option>
+                        <option value="JD50">Jump 50 Index</option>
+                        <option value="JD75">Jump 75 Index</option>
+                        <option value="JD100">Jump 100 Index</option>
+                    </optgroup>
+                </select>
+
+                <label>Contract Type:</label>
+                <select id="contractType" onchange="adjustBarrierVisibility()">
+                    <option value="DIGITEVEN">Even (DIGITEVEN)</option>
+                    <option value="DIGITODD">Odd (DIGITODD)</option>
+                    <option value="DIGITOVER">Over (DIGITOVER)</option>
+                    <option value="DIGITUNDER">Under (DIGITUNDER)</option>
+                    <option value="DIGITMATCH">Matches (DIGITMATCH)</option>
+                    <option value="DIGITDIFF">Differ (DIGITDIFF)</option>
+                </select>
+
+                <div id="barrierGroup">
+                    <label id="barrierLabel">Prediction Barrier Digit (0 - 9):</label>
+                    <input type="number" id="barrier" value="5" min="0" max="9">
+                </div>
+
+                <label>Stake Amount ($):</label>
+                <input type="number" id="stake" value="10" min="0.35" step="0.5">
+
+                <button id="toggleBtn" onclick="toggleBot()">START BOT</button>
+            </div>
+
+            <!-- Analysis & Logs Panel -->
+            <div class="card">
+                <div style="display:flex; justify-between; align-items:center;">
+                    <h3 style="margin:0; border:none;">Live Market Stream & Frequency</h3>
+                    <div>Status: <span id="botStatus" class="status-badge status-off">STOPPED</span></div>
+                </div>
+
+                <label style="margin-top:20px;">Recent Last Ticks (Rightmost = Latest):</label>
+                <div id="digitStream" class="digit-stream">
+                    <div style="color: var(--subtext);">Connecting to tick stream...</div>
+                </div>
+
+                <label>Digit Frequency Counter:</label>
+                <div class="stat-grid" id="statGrid"></div>
+
+                <label>Activity Log:</label>
+                <div id="logs" class="log-box">-- System Authorized & Connected --<br></div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // ==========================================
+    // CONFIGURATION VARIABLES (SET YOUR SECRET KEY HERE)
+    // ==========================================
+    const CONFIG_ACCESS_KEY = "SECRET123"; // Change this to your secret login key!
+    const app_id = 1089;
+
+    let ws = null;
+    let isRunning = false;
+    let isTrading = false;
+    let ticks = [];
+    let digitCounts = Array(10).fill(0);
+    let userApiToken = "";
+
+    // AUTHENTICATION LOGIC
+    function authenticate() {
+        const inputKey = document.getElementById('accessKeyInput').value.trim();
+        const inputToken = document.getElementById('tokenInput').value.trim();
+        const errorDiv = document.getElementById('loginError');
+
+        if (inputKey === CONFIG_ACCESS_KEY && inputToken !== "") {
+            userApiToken = inputToken;
+            errorDiv.style.display = "none";
+            
+            // Switch views
+            document.getElementById('landingScreen').style.display = "none";
+            document.getElementById('dashboardScreen').style.display = "block";
+            document.getElementById('userInfo').style.display = "block";
+
+            // Initialize WebSocket Connection
+            initWebSocket();
+        } else {
+            errorDiv.style.display = "block";
+        }
+    }
+
+    function logout() {
+        if (isRunning) toggleBot();
+        if (ws) ws.close();
+
+        document.getElementById('dashboardScreen').style.display = "none";
+        document.getElementById('userInfo').style.display = "none";
+        document.getElementById('landingScreen').style.display = "block";
+        document.getElementById('accessKeyInput').value = "";
+    }
+
+    // WEBSOCKET & MARKET ENGINE
+    function initWebSocket() {
+        ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${app_id}`);
+
+        ws.onopen = () => {
+            log("WebSocket connected to Deriv server.");
+            switchMarket();
+        };
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            if (data.msg_type === 'tick') {
+                handleTick(data.tick);
+            }
+
+            if (data.msg_type === 'buy') {
+                log(`✓ TRADE PURCHASED! Contract ID: ${data.buy.contract_id}`);
+                setTimeout(() => { isTrading = false; }, 2500);
+            }
+
+            if (data.error) {
+                log(`❌ API Error: ${data.error.message}`);
+                isTrading = false;
+            }
+        };
+
+        ws.onclose = () => {
+            log("WebSocket connection closed.");
+        };
+    }
+
+    function switchMarket() {
+        const symbol = document.getElementById('market').value;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ forget_all: "ticks" }));
+            ws.send(JSON.stringify({ ticks: symbol }));
+            ticks = [];
+            digitCounts = Array(10).fill(0);
+            log(`Switched market to: ${symbol}`);
+        }
+    }
+
+    function handleTick(tick) {
+        const quote = tick.quote.toFixed(tick.pip_size);
+        const lastDigit = parseInt(quote.slice(-1));
+
+        ticks.push(lastDigit);
+        if (ticks.length > 15) ticks.shift();
+
+        digitCounts[lastDigit]++;
+
+        renderTicks();
+        renderStats();
+
+        if (isRunning && !isTrading) {
+            checkEntrySignal(lastDigit);
+        }
+    }
+
+    function renderTicks() {
+        const container = document.getElementById('digitStream');
+        container.innerHTML = ticks.map(d => 
+            `<div class="digit-box ${d % 2 === 0 ? 'even' : 'odd'}">${d}</div>`
+        ).join('');
+    }
+
+    function renderStats() {
+        const container = document.getElementById('statGrid');
+        container.innerHTML = digitCounts.map((count, digit) => 
+            `<div class="stat-item">${digit}<span>${count}</span></div>`
+        ).join('');
+    }
+
+    // STRATEGY SIGNAL ENGINE
+    function checkEntrySignal(latestDigit) {
+        const contractType = document.getElementById('contractType').value;
+        const barrier = parseInt(document.getElementById('barrier').value);
+
+        if (contractType === "DIGITEVEN" || contractType === "DIGITODD") {
+            const last3 = ticks.slice(-3);
+            if (last3.length < 3) return;
+
+            const threeEvens = last3.every(d => d % 2 === 0);
+            const threeOdds = last3.every(d => d % 2 !== 0);
+
+            if (threeOdds && contractType === "DIGITEVEN") {
+                log("SIGNAL: 3 ODD Streak -> Executing DIGITEVEN");
+                placeOrder("DIGITEVEN");
+            } else if (threeEvens && contractType === "DIGITODD") {
+                log("SIGNAL: 3 EVEN Streak -> Executing DIGITODD");
+                placeOrder("DIGITODD");
+            }
+        }
+
+        if (contractType === "DIGITOVER") {
+            const last2 = ticks.slice(-2);
+            if (last2.length >= 2 && last2.every(d => d < barrier)) {
+                log(`SIGNAL: Consecutive digits < ${barrier} -> Executing DIGITOVER`);
+                placeOrder("DIGITOVER", barrier);
+            }
+        }
+
+        if (contractType === "DIGITUNDER") {
+            const last2 = ticks.slice(-2);
+            if (last2.length >= 2 && last2.every(d => d > barrier)) {
+                log(`SIGNAL: Consecutive digits > ${barrier} -> Executing DIGITUNDER`);
+                placeOrder("DIGITUNDER", barrier);
+            }
+        }
+
+        if (contractType === "DIGITDIFF") {
+            if (latestDigit === barrier) {
+                log(`SIGNAL: Digit ${barrier} hit -> Executing DIGITDIFF (Instant repeat avoidance)`);
+                placeOrder("DIGITDIFF", barrier);
+            }
+        }
+
+        if (contractType === "DIGITMATCH") {
+            const last10 = ticks.slice(-10);
+            if (!last10.includes(barrier)) {
+                log(`SIGNAL: Digit ${barrier} absent in 10 ticks -> Executing DIGITMATCH`);
+                placeOrder("DIGITMATCH", barrier);
+            }
+        }
+    }
+
+    function placeOrder(type, barrierValue = null) {
+        isTrading = true;
+
+        ws.send(JSON.stringify({ authorize: userApiToken }));
+
+        const req = {
+            buy: 1,
+            price: parseFloat(document.getElementById('stake').value),
+            parameters: {
+                amount: parseFloat(document.getElementById('stake').value),
+                basis: 'stake',
+                contract_type: type,
+                currency: 'USD',
+                duration: 1,
+                duration_unit: 't',
+                symbol: document.getElementById('market').value
+            }
+        };
+
+        if (['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(type) && barrierValue !== null) {
+            req.parameters.barrier = barrierValue;
+        }
+
+        ws.send(JSON.stringify(req));
+    }
+
+    function toggleBot() {
+        const btn = document.getElementById('toggleBtn');
+        const status = document.getElementById('botStatus');
+
+        isRunning = !isRunning;
+
+        if (isRunning) {
+            btn.innerText = "STOP BOT";
+            btn.classList.add('btn-stop');
+            status.innerText = "RUNNING";
+            status.className = "status-badge status-on";
+            log("▶ BOT STARTED: Scanning tick stream for entries...");
+        } else {
+            btn.innerText = "START BOT";
+            btn.classList.remove('btn-stop');
+            status.innerText = "STOPPED";
+            status.className = "status-badge status-off";
+            log("⏹ BOT STOPPED.");
+        }
+    }
+
+    function adjustBarrierVisibility() {
+        const type = document.getElementById('contractType').value;
+        const barrierGroup = document.getElementById('barrierGroup');
+        barrierGroup.style.display = (type === "DIGITEVEN" || type === "DIGITODD") ? "none" : "block";
+    }
+
+    function log(msg) {
+        const box = document.getElementById('logs');
+        const time = new Date().toLocaleTimeString();
+        box.innerHTML += `[${time}] ${msg}<br>`;
+        box.scrollTop = box.scrollHeight;
+    }
+
+    adjustBarrierVisibility();
+</script>
+</body>
+</html>
