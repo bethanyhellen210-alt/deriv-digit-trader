@@ -1,30 +1,30 @@
 # Vercel deployment
 
-## Deploy from GitHub
+## Deploy the manual-entry signal page
 
-This is a static HTML project. The additive signal-engine page is `engine.html`; the existing `index.html` was intentionally left unchanged.
+This is a static HTML project with a Vercel serverless access-key endpoint. The existing `index.html` is intentionally unchanged. The clean manual-entry UI is `manual.html`.
 
-1. Open the repository in Vercel and import it, or open the existing Vercel project settings.
-2. Select the Git branch `audit/additive-deriv-engine` for this preview deployment.
-3. Set Framework Preset to **Other**.
-4. Set Root Directory to the repository root.
-5. Leave Build Command empty and Output Directory empty/default. Do not set a Node build command.
-6. Deploy, then open the deployment URL followed by `/engine.html`.
+1. In Vercel, open the project connected to `bethanyhellen210-alt/deriv-digit-trader`.
+2. For a preview deployment, select branch `audit/additive-deriv-engine`. To publish to the production domain, merge this additive branch into the production branch after reviewing the changes.
+3. Framework Preset: **Other**.
+4. Root Directory: repository root.
+5. Build Command: leave empty. Output Directory: default/empty.
+6. In **Settings → Environment Variables**, add `LICENSE_KEY` with the exact access key you want to use. Add it to Preview and/or Production as appropriate, then redeploy.
+7. Deploy and open the deployment URL followed by `/manual.html`.
 
-Example: `https://YOUR-DEPLOYMENT.vercel.app/engine.html`
+Example: `https://YOUR-DEPLOYMENT.vercel.app/manual.html`
 
-## Using the signal page
+## Use the app
 
-- Enter a Deriv App ID and a read-only API token, then press **Connect & Start**.
-- Select a market. The page receives live ticks and shows candidate signal evaluations for Even/Odd, Over 1, Under 8, Over 4, Under 5, Differs, and Matches.
-- Use **Stop** to close the WebSocket.
-- Tokens are held in page memory only; do not commit or share tokens.
-- The risk-check panel is informational and depends on the balance, session P/L, stake and loss counts entered by the user.
+- Enter the configured access key and select **Verify Access Key**.
+- Enter a Deriv App ID (default `1089`) and a Deriv API token, choose a market and a contract strategy, then press **START ANALYSIS**.
+- The app reads live ticks from Deriv's public WebSocket API and evaluates the selected strategy. **STOP** closes the connection.
+- When the selected strategy does not produce a candidate, the page shows **NO SIGNAL FOUND — CHANGE MARKET**.
+- The app is manual-entry only. It never buys contracts or places trades. Signals are heuristic candidates, not guaranteed predictions.
+- Prefer a read-only token and never commit/share tokens. The token is kept in page memory and is not saved by this page.
 
-## Scope and production cautions
+## Notes
 
-- The existing `index.html` is unchanged. The engine is available at `/engine.html`; it has not been wired into the existing home page.
-- This page is signal-only. It does not send proposal or buy requests and does not automate trading.
-- The strategy rules are heuristic triggers, not demonstrated predictive edges. Streaks and cold digits do not guarantee a reversal or increase the theoretical next-tick probability.
-- This branch has not been verified against a live Deriv account or deployed by this change. After Vercel finishes, test connection status, invalid token behavior, market switching and Stop on mobile before relying on any signals.
-- The original `index.html` contains a client-visible hardcoded access key (`SECRET123`). It is not secure authentication and should not be used to protect sensitive features.
+- `/api/verify-key` returns an error until `LICENSE_KEY` is configured in Vercel. The example key previously discussed is not automatically active; the value must be configured by the site owner.
+- `index.html` remains untouched. Open `/manual.html` directly.
+- This code change does not itself confirm a live WebSocket connection or a successful Vercel deployment. Test on the deployed URL with a valid token, then test Stop and market switching on mobile.
