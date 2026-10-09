@@ -23,6 +23,14 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 <h1>Deriv Digit Signal Engine</h1>
 <p>Live tick analysis for Even/Odd, Over/Under, Differs and Matches. This page does not buy contracts or place trades.</p>
 <div class="notice"><strong>Safety:</strong> Use a read-only Deriv API token. Never paste a token into GitHub or share it. Streak and cold-digit rules are heuristics, not guaranteed prediction methods.</div>
+<section class="panel" id="licensePanel">
+<h2 style="margin:0 0 8px;font-size:18px">Access Key / License Key</h2>
+<p style="margin:0 0 12px">Enter your system access key to unlock the Deriv signal engine.</p>
+<div><label for="accessKey">Access Key / License Key</label><input id="accessKey" type="password" autocomplete="off" placeholder="Enter your system access key"></div>
+<button id="unlock" class="primary" style="margin-top:12px">Verify Access Key</button>
+<div id="licenseStatus" class="status">Engine locked until key is verified.</div>
+</section>
+<div id="engineApp" hidden>
 <section class="panel">
 <div class="grid">
 <div><label for="appId">Deriv App ID</label><input id="appId" value="1089" inputmode="numeric" autocomplete="off"></div>
@@ -63,13 +71,14 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 <button id="riskCheck" style="margin-top:12px">Check risk limits</button><div id="riskResult" class="status">Enter values and run a check.</div>
 </section>
 <section class="panel"><h2 style="margin:0 0 10px;font-size:18px">Connection log</h2><div id="log" class="log">Ready.</div></section>
+</div>
 </main>
 <script src="./deriv-engine-v2.js"></script>
 <script>
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
-let engine=null, latestTick=null;
+let engine=null, latestTick=null, accessKeyVerified=false;
 const strategyNames=[
 ["EVEN_ODD","Even / Odd reversal"],["OVER_1","Over 1"],["UNDER_8","Under 8"],
 ["OVER_4","Over 4 rebalance"],["UNDER_5","Under 5 rebalance"],["DIFFERS","Differs"],["MATCHES","Cold-digit Matches"]
@@ -94,7 +103,21 @@ function renderDigits(info){
  info.counts.forEach((count,digit)=>{const cell=document.createElement("div");cell.className="digit";cell.textContent=digit;const small=document.createElement("small");small.textContent=count+" • "+(info.total?(count*100/info.total).toFixed(1):"0.0")+"%";cell.appendChild(small);$("digits").appendChild(cell);});
 }
 function stop(){if(engine){engine.disconnect();engine=null;}status("Disconnected");$("connect").disabled=false;}
+$("unlock").addEventListener("click",async()=>{
+ const key=$("accessKey").value.trim();
+ if(!key){$("licenseStatus").textContent="Enter your system access key.";$("licenseStatus").className="status bad";return;}
+ $("unlock").disabled=true;$("licenseStatus").textContent="Verifying access key…";$("licenseStatus").className="status";
+ try{
+  const response=await fetch("/api/verify-key",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key})});
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok||!result.ok)throw new Error(result.error||"Access key verification failed.");
+  accessKeyVerified=true;$("engineApp").hidden=false;$("licensePanel").hidden=true;
+  $("token").focus();log("System access key verified.");
+ }catch(error){accessKeyVerified=false;$("licenseStatus").textContent=error.message;$("licenseStatus").className="status bad";}
+ finally{$("unlock").disabled=false;}
+});
 $("connect").addEventListener("click",()=>{
+ if(!accessKeyVerified){status("Verify the system access key first.","bad");return;}
  const token=$("token").value.trim();if(!token){status("Enter a Deriv API token.","bad");return;}
  stop();
  engine=new window.DerivDigitEngine({
