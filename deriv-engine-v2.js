@@ -1,12 +1,13 @@
-/* Isolated Deriv tick/signal engine. Does not place trades.
-   Additive file for review; original index.html remains untouched. */
+/* Isolated Deriv tick/signal engine. Signal-only: it never buys contracts.
+   Additive branch file; original index.html remains untouched.
+   Strategy thresholds are heuristics, not evidence of predictive edge. */
 (function (root) {
   "use strict";
   class DerivDigitEngine {
     constructor(options = {}) {
       this.appId = String(options.appId || "1089");
       this.thresholdPercent = Number(options.thresholdPercent || 10.4);
-      this.windowSize = Math.max(20, Number(options.windowSize || 100));
+      this.windowSize = Math.max(30, Number(options.windowSize || 100));
       this.onStatus = options.onStatus || function () {};
       this.onTick = options.onTick || function () {};
       this.onSignal = options.onSignal || function () {};
@@ -16,6 +17,7 @@
       this.symbol = null;
       this.digits = [];
       this.counts = Array(10).fill(0);
+      this.lastTick = null;
       this.closedByUser = false;
     }
     send(data) {
@@ -71,12 +73,15 @@
       this.symbol = String(symbol);
       this.digits = [];
       this.counts = Array(10).fill(0);
+      this.lastTick = null;
       if (!this.authorized) {
         this.onStatus("Market selected; waiting for authorization.");
         return false;
       }
-      this.send({ forget_all: "ticks", req_id: 2 });
-      return this.send({ ticks: this.symbol, subscribe: 1, req_id: 3 });
+      // Forget only this engine's previous tick subscription when possible.
+      if (this.lastSubscriptionId) this.send({ forget: this.lastSubscriptionId });
+      const sent = this.send({ ticks: this.symbol, subscribe: 1, req_id: 3 });
+      return sent;
     }
     acceptTick(tick) {
       if (this.symbol && tick.symbol && tick.symbol !== this.symbol) return;
@@ -86,19 +91,93 @@
       if (this.digits.length > this.windowSize) this.digits.shift();
       this.counts = Array(10).fill(0);
       this.digits.forEach((d) => { this.counts[d] += 1; });
+      const previous = this.lastTick;
+      this.lastTick = digit;
       const total = this.digits.length;
-      this.onTick({
-        symbol: tick.symbol || this.symbol, quote: tick.quote, digit, total,
+      const tickInfo = {
+        symbol: tick.symbol || this.symbol, quote: tick.quote, digit, previousDigit: previous, total,
         digits: this.digits.slice(), counts: this.counts.slice(),
         percentages: this.counts.map((n) => total ? n * 100 / total : 0)
-      });
+      };
+      this.onTick(tickInfo);
       this.onStatus("Live ticks: " + total + "/" + this.windowSize);
+      // Emits event-triggered candidates; caller must decide whether to display them.
+      const automatic = this.evaluateAll();
+      automatic.forEach((result) => { if (result.status === "signal") this.onSignal(result); });
     }
     static lastDigit(quote, pipSize) {
       const precision = Number(pipSize), value = Number(quote);
       if (!Number.isFinite(value) || !Number.isInteger(precision) || precision < 0 || precision > 10) return null;
       const match = value.toFixed(precision).match(/(\d)$/);
       return match ? Number(match[1]) : null;
+    }
+    static streakLength(digits, predicate) {
+      let count = 0;
+      for (let i = digits.length - 1; i >= 0 && predicate(digits[i]); i--) count++;
+      return count;
+    }
+    evaluateStrategy(strategy, options = {}) {
+      const d = this.digits, total = d.length, latest = d[total - 1];
+      const minSample = Number(options.minSample || 15);
+      if (!total) return { status: "warming-up", strategy, message: "Waiting for live ticks.", total };
+      const signal = (contractType, barrier, reason, extra = {}) => ({
+        status: "signal", strategy, contractType, barrier: barrier === undefined ? null : barrier,
+        symbol: this.symbol, lastDigit: latest, total, reason, message: reason, ...extra
+      });
+      const noSignal = (reason, extra = {}) => ({
+        status: "no-signal", strategy, symbol: this.symbol, lastDigit: latest, total,
+        reason, message: reason, ...extra
+      });
+      if (strategy === "EVEN_ODD") {
+        const run = DerivDigitEngine.streakLength(d, (x) => x % 2 === latest % 2);
+        if (run >= 3) return signal(latest % 2 ? "DIGITEVEN" : "DIGITODD", null,
+          run + " consecutive " + (latest % 2 ? "odd" : "even") + " digits; opposite parity candidate.", { streak: run });
+        return noSignal("Waiting for 3 consecutive digits of the same parity.", { streak: run });
+      }
+      if (strategy === "OVER_1") {
+        const last2 = d.slice(-2);
+        if (last2.length === 2 && last2.every((x) => x <= 1))
+          return signal("DIGITOVER", 1, "Two consecutive digits were 0 or 1; Over 1 candidate.");
+        return noSignal("Waiting for two consecutive digits in {0,1}.");
+      }
+      if (strategy === "UNDER_8") {
+        const last2 = d.slice(-2);
+        if (last2.length === 2 && last2.every((x) => x >= 8))
+          return signal("DIGITUNDER", 8, "Two consecutive digits were 8 or 9; Under 8 candidate.");
+        return noSignal("Waiting for two consecutive digits in {8,9}.");
+      }
+      if (strategy === "OVER_4" || strategy === "UNDER_5") {
+        const sample = d.slice(-Math.min(15, total));
+        if (sample.length < minSample) return { status: "warming-up", strategy, total, message: "Collecting at least " + minSample + " ticks." };
+        const below = sample.filter((x) => x <= 4).length / sample.length * 100;
+        const above = 100 - below;
+        const observed = strategy === "OVER_4" ? below : above;
+        if (observed >= 75) return signal(strategy === "OVER_4" ? "DIGITOVER" : "DIGITUNDER",
+          strategy === "OVER_4" ? 4 : 5,
+          observed.toFixed(1) + "% of the last " + sample.length + " digits clustered on the opposite side; rebalancing candidate.",
+          { sampleSize: sample.length, clusterPercent: Number(observed.toFixed(2)) });
+        return noSignal("No 75% cluster in the last " + sample.length + " ticks.", { sampleSize: sample.length, clusterPercent: Number(observed.toFixed(2)) });
+      }
+      if (strategy === "DIFFERS") {
+        return signal("DIGITDIFF", latest, "Latest digit is " + latest + "; Differs candidate uses that digit as barrier for a subsequent tick.", { barrierSource: "latest-digit" });
+      }
+      if (strategy === "MATCHES") {
+        const absentWindow = Math.max(20, Number(options.absentTicks || 20));
+        const recent = d.slice(-absentWindow);
+        if (recent.length < absentWindow) return { status: "warming-up", strategy, total, message: "Collecting " + absentWindow + " ticks for cold-digit scan." };
+        const target = Number.isInteger(options.barrier) && options.barrier >= 0 && options.barrier <= 9
+          ? options.barrier : Array.from({ length: 10 }, (_, i) => i).find((x) => !recent.includes(x));
+        if (target === undefined) return noSignal("No digit is absent from the last " + absentWindow + " ticks.");
+        if (!recent.includes(target)) return signal("DIGITMATCH", target,
+          "Digit " + target + " was absent from the last " + absentWindow + " ticks; Match candidate only, not a prediction.",
+          { absentTicks: absentWindow });
+        return noSignal("Selected digit " + target + " appeared in the last " + absentWindow + " ticks.", { barrier: target, absentTicks: absentWindow });
+      }
+      return { status: "invalid", strategy, total, message: "Unknown strategy. Use EVEN_ODD, OVER_1, UNDER_8, OVER_4, UNDER_5, DIFFERS or MATCHES." };
+    }
+    evaluateAll(options = {}) {
+      return ["EVEN_ODD", "OVER_1", "UNDER_8", "OVER_4", "UNDER_5", "DIFFERS", "MATCHES"]
+        .map((name) => this.evaluateStrategy(name, options));
     }
     evaluate(contractType, barrier, thresholdPercent = this.thresholdPercent) {
       const n = Number(barrier), threshold = Number(thresholdPercent), total = this.digits.length;
@@ -120,17 +199,35 @@
       } else {
         return { status: "invalid", message: "Unsupported digit contract type.", total };
       }
-      const observed = count * 100 / total, signal = observed < threshold;
-      const result = {
-        status: signal ? "signal" : "no-signal", contractType, barrier: n,
+      const observed = count * 100 / total, candidate = observed < threshold;
+      return {
+        status: candidate ? "signal" : "no-signal", contractType, barrier: n,
         observedPercent: Number(observed.toFixed(2)), thresholdPercent: threshold,
         condition: group, total,
-        message: signal
+        message: candidate
           ? "Candidate signal: " + group + " observed at " + observed.toFixed(2) + "%, below " + threshold + "%."
           : "No signal found, change market. " + group + " observed at " + observed.toFixed(2) + "%."
       };
-      if (signal) this.onSignal(result);
-      return result;
+    }
+    static checkRisk(options = {}) {
+      const balance = Number(options.balance), stake = Number(options.stake);
+      const sessionProfit = Number(options.sessionProfit || 0);
+      const consecutiveLosses = Math.max(0, Number(options.consecutiveLosses || 0));
+      const recoveryStep = Math.max(0, Number(options.recoveryStep || 0));
+      const strategy = String(options.strategy || "");
+      const maxLossPercent = Number(options.maxLossPercent || 15);
+      const takeProfitPercent = Number(options.takeProfitPercent || 10);
+      const maxRecoverySteps = strategy === "DIFFERS" ? 0 : Math.min(3, Number(options.maxRecoverySteps || 3));
+      const reasons = [];
+      if (!Number.isFinite(balance) || balance <= 0) reasons.push("Balance must be positive.");
+      if (!Number.isFinite(stake) || stake <= 0) reasons.push("Stake must be positive.");
+      if (balance > 0 && stake > balance * 0.02) reasons.push("Stake exceeds 2% of the supplied balance.");
+      if (balance > 0 && sessionProfit <= -(balance * maxLossPercent / 100)) reasons.push("Session stop-loss reached.");
+      if (balance > 0 && sessionProfit >= balance * takeProfitPercent / 100) reasons.push("Session take-profit reached.");
+      if (consecutiveLosses >= 3) reasons.push("Three consecutive losses: stop and review.");
+      if (strategy === "DIFFERS" && consecutiveLosses >= 1) reasons.push("Differs rule: stop after the first loss.");
+      if (recoveryStep > maxRecoverySteps) reasons.push("Recovery-step limit reached.");
+      return { allowed: reasons.length === 0, reasons, maxRecoverySteps, note: "Risk check only; no order is placed. Supply accurate balance and session P/L from the app." };
     }
     disconnect() {
       this.closedByUser = true;
