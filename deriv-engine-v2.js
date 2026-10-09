@@ -46,6 +46,7 @@
         let data;
         try { data = JSON.parse(event.data); }
         catch (_) { this.onError(new Error("Invalid response from Deriv.")); return; }
+        if (data.subscription && data.subscription.id) this.lastSubscriptionId = data.subscription.id;
         if (data.error) {
           this.onError(new Error(data.error.message || "Deriv API error."));
           if (data.msg_type === "authorize") this.onStatus("Authorization failed");
@@ -71,6 +72,10 @@
     }
     subscribe(symbol) {
       if (!symbol) { this.onError(new Error("Select a market.")); return false; }
+      if (this.authorized && this.lastSubscriptionId) {
+        this.send({ forget: this.lastSubscriptionId });
+        this.lastSubscriptionId = null;
+      }
       this.symbol = String(symbol);
       this.digits = [];
       this.counts = Array(10).fill(0);
@@ -80,8 +85,6 @@
         this.onStatus("Market selected; waiting for authorization.");
         return false;
       }
-      // Forget only this engine's previous tick subscription when possible.
-      if (this.lastSubscriptionId) this.send({ forget: this.lastSubscriptionId });
       const sent = this.send({ ticks: this.symbol, subscribe: 1, req_id: 3 });
       return sent;
     }
