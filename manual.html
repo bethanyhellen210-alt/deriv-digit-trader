@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080b10">
+<title>Deriv Manual Entry Signals</title>
+<style>
+:root{color-scheme:dark;--bg:#080b10;--panel:#111720;--line:#263140;--text:#eef3fa;--muted:#9ba9ba;--gold:#e8bd62;--green:#52d6a0;--red:#ff7f7f}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}main{width:min(560px,100%);margin:auto;padding:22px 15px 36px}
+.eyebrow{color:var(--gold);font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}h1{font-size:clamp(25px,6vw,34px);line-height:1.15;margin:8px 0}p{color:var(--muted)}.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-top:14px}
+label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin:12px 0 6px}input,select,button{width:100%;font:inherit;border-radius:10px;padding:12px;border:1px solid var(--line);background:#0b1017;color:var(--text)}button{cursor:pointer;font-weight:800}button.primary{background:var(--gold);color:#17130a;border-color:var(--gold)}button:disabled{opacity:.55;cursor:not-allowed}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.status{font-weight:700;color:var(--muted);margin-top:12px}.good{color:var(--green)}.bad{color:var(--red)}.entry{margin-top:14px;min-height:210px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border:1px solid var(--line);border-radius:16px;background:#0b1017;padding:22px}.entry small{color:var(--muted);font-weight:800;letter-spacing:.12em}.entry strong{font-size:clamp(28px,8vw,42px);line-height:1.2;margin:12px 0;color:var(--gold);overflow-wrap:anywhere}.entry p{margin:0;max-width:430px}.notice{font-size:12px;color:var(--muted);margin-top:14px}
+[hidden]{display:none!important}
+</style></head>
+<body><main>
+<div class="eyebrow">Live Deriv ticks · Manual trading only</div>
+<h1>ENTRY SIGNAL</h1>
+<p>Select a market and strategy. Start analysis to read live Deriv ticks. Place any trade yourself in Deriv.</p>
+<section class="panel" id="licensePanel">
+<label for="accessKey">Access Key / License Key</label><input id="accessKey" type="password" autocomplete="off" placeholder="Enter access key">
+<button id="unlock" class="primary" style="margin-top:12px">Verify Access Key</button><div id="licenseStatus" class="status">Engine locked.</div>
+</section>
+<div id="app" hidden>
+<section class="panel">
+<label for="appId">Deriv App ID</label><input id="appId" value="1089" inputmode="numeric" autocomplete="off">
+<label for="token">Deriv API Token</label><input id="token" type="password" autocomplete="off" placeholder="Paste your Deriv token (not saved)">
+<label for="market">Market Select</label><select id="market">
+<option value="R_10">Volatility 10 Index</option><option value="R_25">Volatility 25 Index</option><option value="R_50">Volatility 50 Index</option><option value="R_75">Volatility 75 Index</option><option value="R_100" selected>Volatility 100 Index</option>
+<option value="1HZ10V">Volatility 10 (1s) Index</option><option value="1HZ25V">Volatility 25 (1s) Index</option><option value="1HZ50V">Volatility 50 (1s) Index</option><option value="1HZ75V">Volatility 75 (1s) Index</option><option value="1HZ100V">Volatility 100 (1s) Index</option>
+<option value="JD10">Jump 10 Index</option><option value="JD25">Jump 25 Index</option><option value="JD50">Jump 50 Index</option><option value="JD75">Jump 75 Index</option><option value="JD100">Jump 100 Index</option></select>
+<label for="strategy">Contract Type / Strategy</label><select id="strategy">
+<option value="OVER_1">DIGITOVER • 1 (Over 1)</option><option value="UNDER_8">DIGITUNDER • 8 (Under 8)</option><option value="OVER_4">DIGITOVER • 4 (Over 4)</option><option value="UNDER_5">DIGITUNDER • 5 (Under 5)</option><option value="EVEN_ODD">Even / Odd</option><option value="DIFFERS">DIGITDIFF (Differs)</option><option value="MATCHES">DIGITMATCH (Matches)</option></select>
+<div class="actions"><button id="start" class="primary">START ANALYSIS</button><button id="stop">STOP</button></div>
+<div id="status" class="status">Not connected.</div>
+</section>
+<section class="entry" aria-live="polite"><small>ENTRY SIGNAL</small><strong id="signal">NO SIGNAL FOUND</strong><p id="detail">Connect to live data to begin analysis.</p></section>
+<p class="notice">Signals are heuristic candidates, not guaranteed predictions. Live digit outcomes can be random. Use a read-only token where possible. This page never buys contracts or places trades.</p>
+</div>
+</main>
+<script src="./deriv-engine-v2.js"></script>
+<script>
+(function(){
+"use strict";const $=id=>document.getElementById(id);let engine=null,verified=false;
+const names={OVER_1:"DIGITOVER • 1",UNDER_8:"DIGITUNDER • 8",OVER_4:"DIGITOVER • 4",UNDER_5:"DIGITUNDER • 5",EVEN_ODD:"EVEN / ODD",DIFFERS:"DIGITDIFF",MATCHES:"DIGITMATCH"};
+function setStatus(t,k){$("status").textContent=t;$("status").className="status "+(k||"");}
+function clearSignal(message){$("signal").textContent="NO SIGNAL FOUND";$("detail").textContent=message||"NO SIGNAL FOUND — CHANGE MARKET";$("signal").style.color="var(--muted)";}
+function showSignal(r){if(!r||r.status!=="signal"){clearSignal("NO SIGNAL FOUND — CHANGE MARKET");return;}
+$("signal").textContent=(r.contractType||names[r.strategy]||r.strategy)+(r.barrier===null||r.barrier===undefined?"":" • "+r.barrier);
+$("detail").textContent=(r.reason||r.message||"Candidate entry")+" Last digit: "+(r.lastDigit===undefined?"—":r.lastDigit)+". Review Deriv contract details before placing manually.";
+$("signal").style.color="var(--gold)";}
+$("unlock").addEventListener("click",async()=>{const key=$("accessKey").value.trim();if(!key){$("licenseStatus").textContent="Enter your access key.";return;}
+$("unlock").disabled=true;$("licenseStatus").textContent="Verifying…";
+try{const res=await fetch("/api/verify-key",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key})});const data=await res.json().catch(()=>({}));
+if(!res.ok||!data.ok)throw new Error(data.error||"Access key verification failed.");
+verified=true;$("app").hidden=false;$("licensePanel").hidden=true;$("token").focus();
+}catch(e){$("licenseStatus").textContent=e.message;$("licenseStatus").className="status bad";}finally{$("unlock").disabled=false;}});
+function stop(){if(engine){engine.disconnect();engine=null;}setStatus("Stopped.");$("start").disabled=false;clearSignal("Analysis stopped. Press START ANALYSIS to reconnect.");}
+$("start").addEventListener("click",()=>{if(!verified){setStatus("Verify access key first.","bad");return;}const token=$("token").value.trim();if(!token){setStatus("Enter your Deriv API token.","bad");return;}
+stop();clearSignal("Connecting to Deriv live ticks…");engine=new window.DerivDigitEngine({appId:$("appId").value.trim()||"1089",
+onStatus:m=>setStatus(m,/error|failed|closed/i.test(m)?"bad":/live ticks|authorized/i.test(m)?"good":""),
+onError:e=>{setStatus(e.message,"bad");clearSignal("Connection error. Check App ID, token and internet, then restart.");},
+onTick:()=>{if(!engine)return;const result=engine.evaluateStrategy($("strategy").value);showSignal(result);}});
+engine.connect(token);engine.subscribe($("market").value);$("start").disabled=true;});
+$("stop").addEventListener("click",stop);
+$("market").addEventListener("change",()=>{clearSignal("Market changed. Waiting for fresh ticks.");if(engine&&engine.authorized)engine.subscribe($("market").value);});
+$("strategy").addEventListener("change",()=>{clearSignal("Strategy changed. Waiting for the next live tick.");if(engine&&engine.digits.length)showSignal(engine.evaluateStrategy($("strategy").value));});
+})();
+</script></body></html>
