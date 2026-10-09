@@ -178,7 +178,17 @@
         return noSignal("No 75% cluster in the last " + sample.length + " ticks.", { sampleSize: sample.length, clusterPercent: Number(observed.toFixed(2)) });
       }
       if (strategy === "DIFFERS") {
-        return signal("DIGITDIFF", latest, "Latest digit is " + latest + "; Differs candidate uses that digit as barrier for a subsequent tick.", { barrierSource: "latest-digit" });
+        const sample = d.slice(-Math.min(100, total));
+        if (sample.length < 30) return { status: "warming-up", strategy, total, message: "Collecting at least 30 live ticks for Differs frequency check." };
+        const occurrences = sample.filter((x) => x === latest).length;
+        const observed = occurrences * 100 / sample.length;
+        if (observed < this.thresholdPercent) {
+          return signal("DIGITDIFF", latest,
+            "Latest digit " + latest + " appeared in " + observed.toFixed(1) + "% of the last " + sample.length + " ticks, below the " + this.thresholdPercent + "% heuristic threshold. Not a prediction.",
+            { barrierSource: "latest-digit", sampleSize: sample.length, observedPercent: Number(observed.toFixed(2)) });
+        }
+        return noSignal("Latest digit " + latest + " appeared in " + observed.toFixed(1) + "% of the last " + sample.length + " ticks; no Differs candidate under the threshold rule.",
+          { barrier: latest, sampleSize: sample.length, observedPercent: Number(observed.toFixed(2)) });
       }
       if (strategy === "MATCHES") {
         const absentWindow = Math.max(20, Number(options.absentTicks || 20));
